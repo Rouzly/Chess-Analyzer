@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.ui.pages import PlaceholderPage
+from app.ui.pages import AnalysisPage, PlaceholderPage
 
 
 class MainWindow(QMainWindow):
@@ -32,7 +32,10 @@ class MainWindow(QMainWindow):
 
         page_names = ["Главная", "Мои партии", "Анализ", "Статистика", "Настройки"]
         for name in page_names:
-            self.pages.addWidget(PlaceholderPage(name))
+            if name == "Анализ":
+                self.pages.addWidget(AnalysisPage())
+            else:
+                self.pages.addWidget(PlaceholderPage(name))
 
         self.navigation = self._create_navigation()
 
