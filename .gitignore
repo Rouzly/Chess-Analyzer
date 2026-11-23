@@ -1,0 +1,37 @@
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+.mypy_cache/
+.pytype/
+.ruff_cache/
+
+# Temporary data
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+
+# Local SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE settings
+.vscode/
+.idea/
+*.code-workspace
+
+# Testing temporary files
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
