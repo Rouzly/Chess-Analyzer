@@ -1,19 +1,14 @@
 import sys
 
-from PySide6.QtWidgets import QApplication, QMainWindow
+from PySide6.QtWidgets import QApplication
 
-
-class ChessAnalyzerWindow(QMainWindow):
-    def __init__(self) -> None:
-        super().__init__()
-        self.setWindowTitle("Chess Analyzer")
-        self.resize(1100, 700)
+from app.ui.main_window import MainWindow
 
 
 def main() -> int:
     try:
         app = QApplication(sys.argv)
-        window = ChessAnalyzerWindow()
+        window = MainWindow()
         window.show()
         return app.exec()
     except Exception as error:
