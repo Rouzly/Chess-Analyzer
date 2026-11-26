@@ -13,19 +13,27 @@ from PySide6.QtWidgets import (
 )
 
 PIECE_SYMBOLS = {
-    chess.KING: "\u265a",
-    chess.QUEEN: "\u265b",
-    chess.ROOK: "\u265c",
-    chess.BISHOP: "\u265d",
-    chess.KNIGHT: "\u265e",
-    chess.PAWN: "\u265f",
+    chess.WHITE: {
+        chess.KING: "\u2654",
+        chess.QUEEN: "\u2655",
+        chess.ROOK: "\u2656",
+        chess.BISHOP: "\u2657",
+        chess.KNIGHT: "\u2658",
+        chess.PAWN: "\u2659",
+    },
+    chess.BLACK: {
+        chess.KING: "\u265a",
+        chess.QUEEN: "\u265b",
+        chess.ROOK: "\u265c",
+        chess.BISHOP: "\u265d",
+        chess.KNIGHT: "\u265e",
+        chess.PAWN: "\u265f",
+    },
 }
 
 
 class ChessBoardWidget(QWidget):
-    LIGHT_SQUARE = "#D9CDB8"
-    DARK_SQUARE = "#78866B"
-    SELECTED_SQUARE = "#8BC49A"
+    SQUARE_SIZE = 72
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -45,6 +53,7 @@ class ChessBoardWidget(QWidget):
         content_layout.setSpacing(16)
 
         board_container = QWidget()
+        board_container.setFixedSize(self.SQUARE_SIZE * 8, self.SQUARE_SIZE * 8)
         board_container.setSizePolicy(
             QSizePolicy.Policy.Fixed,
             QSizePolicy.Policy.Fixed,
@@ -57,7 +66,8 @@ class ChessBoardWidget(QWidget):
             for file in range(8):
                 square = chess.square(file, rank)
                 button = QPushButton()
-                button.setFixedSize(72, 72)
+                button.setProperty("boardSquare", True)
+                button.setFixedSize(self.SQUARE_SIZE, self.SQUARE_SIZE)
                 button.setCursor(Qt.CursorShape.PointingHandCursor)
                 button.clicked.connect(
                     lambda checked=False, square=square: self._on_square_clicked(square)
@@ -100,43 +110,44 @@ class ChessBoardWidget(QWidget):
 
         layout.addLayout(content_layout)
         layout.addStretch()
-        self._apply_history_styles()
+        self.history_text.setObjectName("moveHistory")
         self._update_board()
         self._update_history()
 
     def _on_square_clicked(self, square: chess.Square) -> None:
         piece = self.board.piece_at(square)
 
-        if self.selected_square is None:
-            if piece is not None and piece.color == self.board.turn:
+        if piece is not None and piece.color == self.board.turn:
+            if square == self.selected_square:
+                self.selected_square = None
+            else:
                 self.selected_square = square
             self._update_board()
             return
 
-        if square == self.selected_square:
-            self.selected_square = None
-            self._update_board()
-            return
-
-        if piece is not None and piece.color == self.board.turn:
-            self.selected_square = square
+        if self.selected_square is None:
             self._update_board()
             return
 
         move = self._get_legal_move(self.selected_square, square)
         if move is not None:
-            san = self.board.san(move)
-            if self.position_index < len(self.move_history):
-                self.move_history = self.move_history[:self.position_index]
-                self.san_history = self.san_history[:self.position_index]
-            self.board.push(move)
-            self.move_history.append(move)
-            self.san_history.append(san)
-            self.position_index = len(self.move_history)
+            self._play_move(move)
 
         self.selected_square = None
         self._update_board()
         self._update_history()
+
+    def _play_move(self, move: chess.Move) -> None:
+        san = self.board.san(move)
+
+        if self.position_index < len(self.move_history):
+            self.move_history = self.move_history[:self.position_index]
+            self.san_history = self.san_history[:self.position_index]
+
+        self.board.push(move)
+        self.move_history.append(move)
+        self.san_history.append(san)
+        self.position_index = len(self.move_history)
 
     def go_back(self) -> None:
         if self.position_index <= 0:
@@ -210,53 +221,6 @@ class ChessBoardWidget(QWidget):
         self.back_button.setEnabled(self.position_index > 0)
         self.forward_button.setEnabled(self.position_index < len(self.move_history))
 
-    def _apply_history_styles(self) -> None:
-        self.history_text.setStyleSheet(
-            """
-            QTextEdit {
-                background-color: #252930;
-                color: #F3F4F5;
-                border: 1px solid #30343C;
-                border-radius: 8px;
-                padding: 12px;
-                font-family: "Segoe UI";
-                font-size: 14px;
-            }
-            """
-        )
-        self.setStyleSheet(
-            """
-            QLabel#historyTitle {
-                color: #F3F4F5;
-                font-size: 16px;
-                font-weight: 600;
-            }
-
-            QPushButton#historyButton {
-                min-height: 38px;
-                border: none;
-                border-radius: 8px;
-                background-color: #30343C;
-                color: #F3F4F5;
-                padding: 0 12px;
-            }
-
-            QPushButton#historyButton:hover {
-                background-color: #3A3F47;
-            }
-
-            QPushButton#historyButton:pressed {
-                background-color: #8BC49A;
-                color: #17191D;
-            }
-
-            QPushButton#historyButton:disabled {
-                background-color: #202329;
-                color: #777C84;
-            }
-            """
-        )
-
     def _get_legal_move(
         self,
         from_square: chess.Square,
@@ -277,33 +241,20 @@ class ChessBoardWidget(QWidget):
         return matching_moves[0]
 
     def _piece_symbol(self, piece: chess.Piece) -> str:
-        symbol = PIECE_SYMBOLS[piece.piece_type]
-        if piece.color == chess.WHITE:
-            return chr(ord(symbol) - 6)
-        return symbol
+        return PIECE_SYMBOLS[piece.color][piece.piece_type]
 
     def _update_board(self) -> None:
         for square, button in self.square_buttons.items():
             file_index = chess.square_file(square)
             rank_index = chess.square_rank(square)
             is_light = (file_index + rank_index) % 2 == 1
-            background = self.LIGHT_SQUARE if is_light else self.DARK_SQUARE
-
-            if square == self.selected_square:
-                background = self.SELECTED_SQUARE
 
             piece = self.board.piece_at(square)
             button.setText(self._piece_symbol(piece) if piece is not None else "")
-
-            text_color = "#F7F4EC" if piece is not None and piece.color == chess.WHITE else "#17191D"
-            button.setStyleSheet(
-                f"""
-                QPushButton {{
-                    background-color: {background};
-                    color: {text_color};
-                    border: none;
-                    font-family: "Segoe UI Symbol";
-                    font-size: 42px;
-                }}
-                """
-            )
+            button.setProperty("squareTone", "light" if is_light else "dark")
+            button.setProperty("pieceColor", (
+                "white" if piece.color == chess.WHITE else "black"
+            ) if piece is not None else "")
+            button.setProperty("selected", square == self.selected_square)
+            button.style().unpolish(button)
+            button.style().polish(button)

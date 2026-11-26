@@ -1,25 +1,35 @@
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
+    QApplication,
     QFrame,
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QMessageBox,
     QPushButton,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
-from app.ui.pages import AnalysisPage, PlaceholderPage
+from app.services.pgn_service import parse_first_game
+from app.ui.my_games_page import MyGamesPage
+from app.ui.pages import AnalysisPage, PlaceholderPage, ThemeSettingsPage
+from app.ui.theme_manager import ThemeManager
 
 
 class MainWindow(QMainWindow):
     APP_VERSION = "0.1.0"
 
-    def __init__(self) -> None:
+    def __init__(self, theme_manager: ThemeManager | None = None) -> None:
         super().__init__()
+        application = QApplication.instance()
+        if application is None:
+            raise RuntimeError("Для создания главного окна требуется QApplication.")
+        self.theme_manager = theme_manager or ThemeManager(application)
         self.setWindowTitle("Chess Analyzer")
-        self.resize(1200, 800)
+        self.resize(1200, 1000)
         self.setMinimumSize(960, 640)
 
         root = QWidget()
@@ -30,19 +40,24 @@ class MainWindow(QMainWindow):
         self.pages = QStackedWidget()
         self.pages.setObjectName("centralPages")
 
-        page_names = ["Главная", "Мои партии", "Анализ", "Статистика", "Настройки"]
-        for name in page_names:
-            if name == "Анализ":
-                self.pages.addWidget(AnalysisPage())
-            else:
-                self.pages.addWidget(PlaceholderPage(name))
+        self.analysis_page = AnalysisPage()
+        self.my_games_page = MyGamesPage(self._open_saved_game)
+        self.settings_page = ThemeSettingsPage(self.theme_manager)
+        page_widgets = [
+            PlaceholderPage("Главная"),
+            self.my_games_page,
+            self.analysis_page,
+            PlaceholderPage("Статистика"),
+            self.settings_page,
+        ]
+        for page in page_widgets:
+            self.pages.addWidget(page)
 
         self.navigation = self._create_navigation()
 
         root_layout.addWidget(self.navigation)
         root_layout.addWidget(self.pages, 1)
         self.setCentralWidget(root)
-        self.setStyleSheet(self._stylesheet())
 
     def _create_navigation(self) -> QWidget:
         navigation = QFrame()
@@ -82,61 +97,19 @@ class MainWindow(QMainWindow):
         self.pages.setCurrentIndex(index)
         for button_index, button in enumerate(self.navigation_buttons):
             button.setChecked(button_index == index)
+        if self.pages.widget(index) is self.my_games_page:
+            self.my_games_page.refresh_games()
 
-    @staticmethod
-    def _stylesheet() -> str:
-        return """
-        QMainWindow, QWidget {
-            background-color: #17191D;
-            color: #F3F4F5;
-            font-family: "Segoe UI";
-            font-size: 14px;
-        }
+    def _open_saved_game(self, pgn_text: str) -> None:
+        try:
+            game = parse_first_game(pgn_text)
+        except ValueError as error:
+            QMessageBox.warning(self, "Ошибка загрузки партии", str(error))
+            return
 
-        #navigation {
-            background-color: #252930;
-            border-right: 1px solid #30343C;
-        }
+        self.analysis_page.display_game(game)
+        self._select_page(2)
 
-        #navigationButton {
-            min-height: 42px;
-            padding: 0 14px;
-            border: none;
-            border-radius: 8px;
-            background-color: transparent;
-            color: #C8CBD0;
-            text-align: left;
-        }
-
-        #navigationButton:hover {
-            background-color: #30343C;
-            color: #F3F4F5;
-        }
-
-        #navigationButton:checked {
-            background-color: #8BC49A;
-            color: #17191D;
-            font-weight: 600;
-        }
-
-        #brand {
-            color: #F3F4F5;
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        #version {
-            color: #9DA2A9;
-            font-size: 12px;
-        }
-
-        #centralPages {
-            background-color: #17191D;
-        }
-
-        #pageTitle {
-            color: #F3F4F5;
-            font-size: 24px;
-            font-weight: 600;
-        }
-        """
+    def closeEvent(self, event: QCloseEvent) -> None:
+        self.my_games_page.stop_import()
+        super().closeEvent(event)

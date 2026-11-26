@@ -8,6 +8,8 @@ from app.ui.main_window import MainWindow
 def main() -> int:
     try:
         app = QApplication(sys.argv)
+        app.setOrganizationName("ChessAnalyzer")
+        app.setApplicationName("ChessAnalyzer")
         window = MainWindow()
         window.show()
         return app.exec()
