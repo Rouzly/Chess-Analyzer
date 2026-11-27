@@ -25,6 +25,9 @@ class ThemePalette:
     board_light: str
     board_dark: str
     board_selected: str
+    board_last_move: str
+    board_check: str
+    board_check_pulse: str
     piece_white: str
     piece_black: str
     win_background: str
@@ -55,6 +58,9 @@ THEMES: dict[str, ThemePalette] = {
         board_light="#D9CDB8",
         board_dark="#78866B",
         board_selected="#8BC49A",
+        board_last_move="#BBAE78",
+        board_check="#A94E53",
+        board_check_pulse="#C26369",
         piece_white="#F7F4EC",
         piece_black="#17191D",
         win_background="#254431",
@@ -83,6 +89,9 @@ THEMES: dict[str, ThemePalette] = {
         board_light="#D5CEDC",
         board_dark="#777080",
         board_selected="#B7A6CF",
+        board_last_move="#A99BBC",
+        board_check="#A6535D",
+        board_check_pulse="#C46771",
         piece_white="#F7F4FA",
         piece_black="#211C29",
         win_background="#344039",
@@ -111,6 +120,9 @@ THEMES: dict[str, ThemePalette] = {
         board_light="#DDCFB8",
         board_dark="#827260",
         board_selected="#D3AE75",
+        board_last_move="#C4A35F",
+        board_check="#A9504D",
+        board_check_pulse="#C46A62",
         piece_white="#FAF5EB",
         piece_black="#211C18",
         win_background="#41402D",
@@ -139,6 +151,9 @@ THEMES: dict[str, ThemePalette] = {
         board_light="#D2D7C9",
         board_dark="#687D70",
         board_selected="#83B99A",
+        board_last_move="#8EA986",
+        board_check="#A64D55",
+        board_check_pulse="#C26369",
         piece_white="#F4F7F0",
         piece_black="#17201B",
         win_background="#294537",
@@ -214,8 +229,13 @@ class ThemeManager(QObject):
             color: {palette.text};
         }}
         QWidget#centralPages, QWidget#placeholderPage, QWidget#analysisPage,
+        QWidget#analysisContent,
         QWidget#myGamesPage, QWidget#settingsPage {{
             background-color: {palette.window};
+        }}
+        QScrollArea#analysisScroll {{
+            background-color: {palette.window};
+            border: none;
         }}
         QFrame#navigation {{
             background-color: {palette.panel};
@@ -284,7 +304,7 @@ class ThemeManager(QObject):
         QLabel#chessComStatus {{
             color: {palette.muted};
         }}
-        QLabel#gameInfo, QFrame#chessComImportPanel,
+        QLabel#gameInfo, QFrame#chessComImportPanel, QFrame#stockfishPanel,
         QFrame#gameCard, QFrame#themeCard {{
             background-color: {palette.panel};
             color: {palette.text};
@@ -323,6 +343,51 @@ class ThemeManager(QObject):
         QLabel#gameDetails, QLabel#chessComStatus {{
             color: {palette.muted};
             font-size: 12px;
+        }}
+        QLabel#stockfishTitle {{
+            color: {palette.text};
+            font-size: 15px;
+            font-weight: 600;
+        }}
+        QLabel#stockfishStatus {{
+            color: {palette.muted};
+            font-size: 12px;
+        }}
+        QLabel#stockfishResult {{
+            color: {palette.text};
+            font-size: 13px;
+        }}
+        QLabel#stockfishEvaluation {{
+            color: {palette.accent};
+            font-size: 28px;
+            font-weight: 700;
+            padding: 6px 0;
+        }}
+        QLabel#stockfishBestMove {{
+            color: {palette.text};
+            font-size: 18px;
+            font-weight: 600;
+            padding: 4px 0;
+        }}
+        QLabel#stockfishStatus {{
+            background-color: {palette.panel_alt};
+            border-radius: 6px;
+            padding: 8px 10px;
+        }}
+        QLabel#boardTurn {{
+            color: {palette.muted};
+            font-size: 12px;
+            padding-left: 6px;
+        }}
+        QLabel#boardCoordinate {{
+            color: {palette.muted};
+            font-size: 12px;
+            font-weight: 600;
+        }}
+        QWidget#boardContainer {{
+            background-color: {palette.panel_alt};
+            border: 1px solid {palette.border};
+            border-radius: 6px;
         }}
         QLabel#gameOutcome {{
             border-radius: 10px;
@@ -408,16 +473,34 @@ class ThemeManager(QObject):
         QPushButton[boardSquare="true"][selected="true"] {{
             background-color: {palette.board_selected};
         }}
+        QPushButton[boardSquare="true"][lastMove="true"] {{
+            background-color: {palette.board_last_move};
+        }}
+        QPushButton[boardSquare="true"][inCheck="true"] {{
+            background-color: {palette.board_check};
+        }}
+        QPushButton[boardSquare="true"][inCheck="true"][checkPulse="true"] {{
+            background-color: {palette.board_check_pulse};
+        }}
         QPushButton[boardSquare="true"] {{
-            min-width: 72px;
-            max-width: 72px;
-            min-height: 72px;
-            max-height: 72px;
+            min-width: 64px;
+            max-width: 64px;
+            min-height: 64px;
+            max-height: 64px;
             border: none;
             border-radius: 0;
             padding: 0;
             font-family: "Segoe UI Symbol";
-            font-size: 42px;
+            font-size: 38px;
+        }}
+        QLabel#legalMoveMarker {{
+            background-color: {palette.accent};
+            border-radius: 8px;
+        }}
+        QLabel#legalCaptureMarker {{
+            background-color: transparent;
+            border: 4px solid {palette.accent};
+            border-radius: 24px;
         }}
         QFrame#themePreview {{
             border: 1px solid {palette.border};

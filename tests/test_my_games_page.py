@@ -2,9 +2,12 @@ import sqlite3
 from io import StringIO
 from pathlib import Path
 
+import chess
 import chess.pgn
 import pytest
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import Qt
+from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QApplication, QMessageBox
 
 from app.database.game_repository import GameRepository
 from app.ui.main_window import MainWindow
@@ -99,6 +102,99 @@ def test_opening_saved_game_displays_it_on_analysis_page(
     assert window.pages.currentIndex() == 2
     assert window.analysis_page.chess_board.san_history == ["e4", "e5", "Nf3"]
     assert "Alice" in window.analysis_page.info_label.text()
+    window.close()
+
+
+def test_analysis_navigation_and_double_click_open_selected_game(
+    qapp: QApplication,
+    repository: GameRepository,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first_game = chess.pgn.read_game(StringIO(VALID_PGN))
+    second_game = chess.pgn.read_game(
+        StringIO(
+            '[Event "Second Game"]\n'
+            '[White "Carol"]\n'
+            '[Black "Dave"]\n'
+            '[Result "*"]\n\n'
+            "1. d4 d5 2. c4 *"
+        )
+    )
+    assert first_game is not None
+    assert second_game is not None
+    repository.save_game(first_game)
+    repository.save_game(second_game)
+    monkeypatch.setattr("app.ui.my_games_page.GameRepository", lambda: repository)
+
+    window = MainWindow()
+    window.my_games_page._repository = repository
+    window.analysis_page.display_game(first_game)
+    window.analysis_page.chess_board.go_to_position(2)
+    saved_fen = window.analysis_page.chess_board.board.fen()
+    window._select_page(2)
+    window.analysis_page.my_games_button.click()
+    assert window.pages.currentWidget() is window.my_games_page
+    window._select_page(2)
+    assert window.analysis_page.chess_board.position_index == 2
+    assert window.analysis_page.chess_board.board.fen() == saved_fen
+    window.analysis_page.my_games_button.click()
+
+    window.show()
+    qapp.processEvents()
+    card = window.my_games_page.game_cards[1]
+    QTest.mouseClick(card, Qt.MouseButton.LeftButton)
+    assert window.pages.currentWidget() is window.my_games_page
+    assert window.my_games_page._selected_game_id == card.game.id
+    assert window.analysis_page.chess_board.position_index == 2
+    assert window.analysis_page.chess_board.board.fen() == saved_fen
+
+    QTest.mouseDClick(card, Qt.MouseButton.LeftButton)
+    qapp.processEvents()
+
+    assert window.pages.currentWidget() is window.analysis_page
+    assert window.analysis_page.chess_board.san_history == ["d4", "d5", "c4"]
+    assert "Carol" in window.analysis_page.info_label.text()
+    assert window.analysis_page.chess_board.position_index == 0
+    assert window.analysis_page.chess_board.board.fen() == (
+        window.analysis_page.chess_board.start_board.fen()
+    )
+    window.close()
+
+
+def test_alternative_line_does_not_update_saved_database_pgn(
+    qapp: QApplication,
+    repository: GameRepository,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    game = chess.pgn.read_game(StringIO(VALID_PGN))
+    assert game is not None
+    game.headers["Result"] = "*"
+    game_id = repository.save_game(game)
+    saved_record = repository.get_game_by_id(game_id)
+    assert saved_record is not None
+    original_pgn = saved_record.pgn_text
+
+    monkeypatch.setattr("app.ui.my_games_page.GameRepository", lambda: repository)
+    monkeypatch.setattr(
+        QMessageBox,
+        "question",
+        lambda *args, **kwargs: QMessageBox.StandardButton.Yes,
+    )
+    window = MainWindow()
+    window.my_games_page._repository = repository
+    window._open_saved_game(original_pgn)
+    window.analysis_page.chess_board.go_to_position(1)
+    window.analysis_page.chess_board._on_square_clicked(
+        chess.parse_square("c7")
+    )
+    window.analysis_page.chess_board._on_square_clicked(
+        chess.parse_square("c5")
+    )
+
+    updated_record = repository.get_game_by_id(game_id)
+    assert updated_record is not None
+    assert updated_record.pgn_text == original_pgn
+    assert window.analysis_page.chess_board.has_alternative_line
     window.close()
 
 

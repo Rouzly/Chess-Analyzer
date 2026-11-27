@@ -62,6 +62,55 @@ def test_save_game_persists_headers_and_pgn_text(repository: GameRepository) -> 
     assert "1. e4 e5 2. Nf3" in record.pgn_text
 
 
+def test_repository_persists_valid_ratings_and_defaults_invalid_ones(
+    repository: GameRepository,
+) -> None:
+    game = make_game()
+    game.headers["WhiteElo"] = "1842"
+    game.headers["BlackElo"] = "?"
+
+    record_id = repository.save_game(game)
+    record = repository.get_game_by_id(record_id)
+
+    assert record is not None
+    assert record.white_elo == 1842
+    assert record.black_elo == 1200
+
+
+def test_repository_migrates_existing_games_table(tmp_path: Path) -> None:
+    database_path = tmp_path / "existing_games.sqlite3"
+    with sqlite3.connect(database_path) as connection:
+        connection.execute(
+            """
+            CREATE TABLE games (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                white_player TEXT NOT NULL,
+                black_player TEXT NOT NULL,
+                result TEXT NOT NULL,
+                date TEXT NOT NULL,
+                event TEXT NOT NULL,
+                pgn_text TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO games (
+                white_player, black_player, result, date, event, pgn_text
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            ("Alice", "Bob", "1-0", "2024.01.02", "Legacy", "1. e4"),
+        )
+
+    repository = GameRepository(database_path)
+    record = repository.get_game_by_id(1)
+
+    assert record is not None
+    assert record.white_player == "Alice"
+    assert record.white_elo == 1200
+    assert record.black_elo == 1200
+
+
 def test_get_all_games_returns_saved_records_in_id_order(
     repository: GameRepository,
 ) -> None:

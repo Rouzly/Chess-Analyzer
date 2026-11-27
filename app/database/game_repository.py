@@ -7,7 +7,7 @@ from typing import Iterator
 
 import chess.pgn
 
-from app.models.game_record import GameRecord
+from app.models.game_record import DEFAULT_ELO, GameRecord, parse_elo
 
 
 DEFAULT_DATABASE_PATH = (
@@ -32,10 +32,26 @@ class GameRepository:
                     result TEXT NOT NULL,
                     date TEXT NOT NULL,
                     event TEXT NOT NULL,
-                    pgn_text TEXT NOT NULL
+                    pgn_text TEXT NOT NULL,
+                    white_elo INTEGER NOT NULL DEFAULT 1200,
+                    black_elo INTEGER NOT NULL DEFAULT 1200
                 )
                 """
             )
+            columns = {
+                row["name"]
+                for row in connection.execute("PRAGMA table_info(games)")
+            }
+            if "white_elo" not in columns:
+                connection.execute(
+                    "ALTER TABLE games ADD COLUMN white_elo INTEGER "
+                    f"NOT NULL DEFAULT {DEFAULT_ELO}"
+                )
+            if "black_elo" not in columns:
+                connection.execute(
+                    "ALTER TABLE games ADD COLUMN black_elo INTEGER "
+                    f"NOT NULL DEFAULT {DEFAULT_ELO}"
+                )
 
     def save_game(self, game: chess.pgn.Game) -> int:
         headers = game.headers
@@ -52,9 +68,11 @@ class GameRepository:
                     result,
                     date,
                     event,
-                    pgn_text
+                    pgn_text,
+                    white_elo,
+                    black_elo
                 )
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     headers["White"],
@@ -63,6 +81,8 @@ class GameRepository:
                     headers["Date"],
                     headers["Event"],
                     pgn_text,
+                    parse_elo(headers.get("WhiteElo")),
+                    parse_elo(headers.get("BlackElo")),
                 ),
             )
             return int(cursor.lastrowid)
@@ -71,7 +91,8 @@ class GameRepository:
         with self._connection() as connection:
             rows = connection.execute(
                 """
-                SELECT id, white_player, black_player, result, date, event, pgn_text
+                SELECT id, white_player, black_player, result, date, event,
+                       pgn_text, white_elo, black_elo
                 FROM games
                 ORDER BY id
                 """
@@ -82,7 +103,8 @@ class GameRepository:
         with self._connection() as connection:
             row = connection.execute(
                 """
-                SELECT id, white_player, black_player, result, date, event, pgn_text
+                SELECT id, white_player, black_player, result, date, event,
+                       pgn_text, white_elo, black_elo
                 FROM games
                 WHERE id = ?
                 """,
@@ -118,4 +140,6 @@ class GameRepository:
             date=row["date"],
             event=row["event"],
             pgn_text=row["pgn_text"],
+            white_elo=row["white_elo"],
+            black_elo=row["black_elo"],
         )

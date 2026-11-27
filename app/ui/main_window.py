@@ -29,7 +29,7 @@ class MainWindow(QMainWindow):
             raise RuntimeError("Для создания главного окна требуется QApplication.")
         self.theme_manager = theme_manager or ThemeManager(application)
         self.setWindowTitle("Chess Analyzer")
-        self.resize(1200, 1000)
+        self.resize(1920, 1080)
         self.setMinimumSize(960, 640)
 
         root = QWidget()
@@ -41,6 +41,13 @@ class MainWindow(QMainWindow):
         self.pages.setObjectName("centralPages")
 
         self.analysis_page = AnalysisPage()
+        self.analysis_page.open_games_requested.connect(
+            lambda: self._select_page(1)
+        )
+        self.theme_manager.theme_changed.connect(
+            self._sync_analysis_history_theme
+        )
+        self._sync_analysis_history_theme(self.theme_manager.current_theme)
         self.my_games_page = MyGamesPage(self._open_saved_game)
         self.settings_page = ThemeSettingsPage(self.theme_manager)
         page_widgets = [
@@ -58,6 +65,14 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(self.navigation)
         root_layout.addWidget(self.pages, 1)
         self.setCentralWidget(root)
+
+    def _sync_analysis_history_theme(self, theme_id: str) -> None:
+        palette = self.theme_manager.available_themes[theme_id]
+        self.analysis_page.chess_board.set_history_colors(
+            palette.accent,
+            palette.selected,
+            palette.selected_text,
+        )
 
     def _create_navigation(self) -> QWidget:
         navigation = QFrame()
@@ -112,4 +127,5 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event: QCloseEvent) -> None:
         self.my_games_page.stop_import()
+        self.analysis_page.stop_analysis()
         super().closeEvent(event)

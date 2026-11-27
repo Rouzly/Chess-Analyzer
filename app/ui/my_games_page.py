@@ -278,8 +278,12 @@ class MyGamesPage(QWidget):
         self._apply_filters()
 
     def _open_selected_game(self) -> None:
-        game = self._games_by_id.get(self._selected_game_id)
+        self._open_game(self._selected_game_id)
+
+    def _open_game(self, game_id: int | None) -> None:
+        game = self._games_by_id.get(game_id)
         if game is not None:
+            self._select_game(game.id)
             self._open_game_callback(game.pgn_text)
 
     def _apply_filters(self, *_args) -> None:
@@ -315,6 +319,7 @@ class MyGamesPage(QWidget):
         for game, outcome in matching_games:
             card = GameCardWidget(game, outcome)
             card.clicked.connect(self._select_game)
+            card.double_clicked.connect(self._open_game)
             self.cards_layout.insertWidget(self.cards_layout.count() - 1, card)
             self.game_cards.append(card)
 
@@ -347,6 +352,7 @@ class MyGamesPage(QWidget):
 
 class GameCardWidget(QFrame):
     clicked = Signal(int)
+    double_clicked = Signal(int)
 
     def __init__(
         self,
@@ -414,3 +420,8 @@ class GameCardWidget(QFrame):
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit(self.game.id)
         super().mousePressEvent(event)
+
+    def mouseDoubleClickEvent(self, event) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.double_clicked.emit(self.game.id)
+        super().mouseDoubleClickEvent(event)
